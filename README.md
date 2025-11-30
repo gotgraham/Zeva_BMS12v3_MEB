@@ -1,6 +1,8 @@
 # Zeva_BMS12v3_MEB
 Zeva BMS12v3 firmware modified to support the VW MEB temperature sensors
 
+This build of the firmware assumes a 10k NTC 3380K B sensor
+
 To build the firmware, CD to /Firmware and run:
 
 $ make
