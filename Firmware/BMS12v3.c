@@ -318,7 +318,11 @@ void CanTX(long packetID, char bytes)
 // Temps: 	-40  -30  -20  -10    0   10   20   30   40   50   60   70   80    90    100   110   120   130   140   150  160
 // Rt/R25: 46.4 23.3 12.2  6.61 3.71 2.15 1.28 0.78 0.49 0.32 0.21 0.14 0.095 0.066 0.047 0.033 0.024 0.018 0.014 0.010 0.08
 // ADC scale seems to be 0-2048, but slight drop due to input impedance makes scale 0-2030 or so
-int tempData[21] = { 1987,1946,1876,1763,1599,1386,1140,890,668,492,352,249,176,126,91,65,48,36,28,20,16 };
+// int tempData[21] = { 1987,1946,1876,1763,1599,1386,1140,890,668,492,352,249,176,126,91,65,48,36,28,20,16 };
+
+// From datasheet for  10Kohm NTC B25/100 of 3380 K. This seems to be roughly what is in the MEB module
+// Temps: 	-40  -30  -20  -10    0   10   20   30   40   50   60   70   80    90    100   110   120   130   140   150  160
+int tempData[21] = { 1354, 1091, 834, 612, 438, 310, 219, 156, 112, 81, 60, 46, 34, 26, 20, 16, 12, 10, 8, 6,4 };
 
 int LineariseTemp(int adc)
 {
