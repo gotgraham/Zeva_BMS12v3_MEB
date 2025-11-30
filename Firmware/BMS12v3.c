@@ -81,7 +81,7 @@ SIGNAL(CAN_INT_vect)
 	{
 		length = CANCDMOB & 0x0F; // Number of bytes to receive is bottom four bits of this reg
 		for (int8_t i=0; i<length; i++) rxData[i] = CANMSG; // This autoincrements when read
-		
+
 		// ID has top 8 bits in IDT1 and bottom 3 bits at TOP of IDT2
 		long rxPacketID;
 		if (USE_29BIT_IDS)
@@ -103,10 +103,22 @@ SIGNAL(CAN_INT_vect)
 	CANPAGE = savedCANPage;
 }
 
-void main()
+void GetModuleID()
+{
+	int rotarySwitch = 0;
+
+	if (!MOD_ID_NUM1) rotarySwitch += 1;
+    if (!MOD_ID_NUM2) rotarySwitch += 2;
+    if (!MOD_ID_NUM4) rotarySwitch += 4;
+    if (!MOD_ID_NUM8) rotarySwitch += 8;
+
+    moduleID = BASE_ID+rotarySwitch*10; // Atomic assignment in case of interrupt
+}
+
+int main()
 {
 	SetupPorts();
-	
+
 	GetModuleID();
 
 	// Initialising variables
@@ -116,13 +128,13 @@ void main()
 	sei(); // Enable interrupts
 	wdt_enable(WDTO_120MS);
 
-	unsigned char cellBytes[25];
-	unsigned char tempBytes[5];
-	short voltages[12][8];
-	short tempBuffer[2][8];
-	
-	char counter = 0;
-	char slowCounter = 0;
+	uint8_t cellBytes[25];
+	uint8_t tempBytes[5];
+	uint16_t voltages[12][8];
+	uint16_t tempBuffer[2][8];
+
+	uint8_t counter = 0;
+	uint8_t slowCounter = 0;
 	while (1)
 	{
 		wdt_reset();
@@ -137,7 +149,7 @@ void main()
 		WriteSPIByte(((unsigned short)(shuntBits>>8))); // Top four bits of shunt bits, right shifted 1 byte
 		WriteSPIByte(0b00000000);
 		WriteSPIByte(0b00000000);
-		WriteSPIByte(0b00000000);	
+		WriteSPIByte(0b00000000);
 		CSBI_PORT |= CSBI; // Pull up to end command
 		_delay_us(100);
 
@@ -146,13 +158,13 @@ void main()
 		WriteSPIByte(STCVAD);
 		CSBI_PORT |= CSBI;
 		_delay_ms(20); // Cell sampling can take up to 16ms - anything we need to do in the meantime?
-	
+
 		// Start temperature sampling
 		CSBI_PORT &= ~CSBI;
 		WriteSPIByte(STTMPAD);
 		CSBI_PORT |= CSBI;
 		_delay_ms(5); // Temp sampling should only take ~3ms
-	
+
 		// Read cell voltage registers
 		CSBI_PORT &= ~CSBI;
 		WriteSPIByte(RDCV);
@@ -201,7 +213,7 @@ void main()
 				}
 
 				if (voltage[n] > 5000) voltage[n] = 0; // Probably no cells plugged in to power the LTC
-					
+
 				if (voltage[n] > 0) notAllZeroVolts = true;
 
 				if (voltage[n] > shuntVoltage && shuntVoltage > 0)
@@ -221,7 +233,7 @@ void main()
 			// Update Status LED(s)
 			RED_PORT &= ~RED; // Most cases have red light off and green on
 			GREEN_PORT |= GREEN;
-			if (shuntBits != 0 & slowCounter&0x01) // Orange/green flash if shunting
+			if ((shuntBits != 0) & slowCounter&0x01) // Orange/green flash if shunting
 				RED_PORT |= RED;
 			else if (!notAllZeroVolts) // Blink red if no cells detected
 			{
@@ -259,13 +271,15 @@ void main()
 			txData[1] = LineariseTemp(temp[1]);
 			txData[2] = txData[3] = txData[4] = txData[5] = txData[6] = txData[7] = 0; // Zeroes, reserved
 			CanTX(moduleID + BMS12_REPLY4, 8);
-			
+
 		}
 		else
 			_delay_ms(4); // Talking to LTC takes 27ms, so this makes it 31ms, which inverts to about 32Hz
 
 		GetModuleID(); // Update in case it changed at runtime
 	}
+
+	return 0;
 }
 
 // Function to transmit a CAN message
@@ -309,9 +323,9 @@ int tempData[21] = { 1987,1946,1876,1763,1599,1386,1140,890,668,492,352,249,176,
 int LineariseTemp(int adc)
 {
 	if (adc > 1950) return 0; // Usually means no sensor connected
-	
+
 	for (int n=0; n<20; n++)
-		if (adc <= tempData[n] && adc > tempData[n+1]) // We're between samples  
+		if (adc <= tempData[n] && adc > tempData[n+1]) // We're between samples
 			return n*10 + 10*(adc - tempData[n])/(tempData[n+1] - tempData[n]); // Calculate linear interpolation
 
 	return 0; // i.e "not available" if the algorithm below doesn't find it (-40 to 160degC)
@@ -364,17 +378,6 @@ void SetupPorts()
 	CANGCON |= (1<<ENASTB); // Enable mode. CAN channel enters enable mode after 11 recessive bits have been read
 }
 
-void GetModuleID()
-{
-	int rotarySwitch = 0;
-
-	if (!MOD_ID_NUM1) rotarySwitch += 1;
-    if (!MOD_ID_NUM2) rotarySwitch += 2;
-    if (!MOD_ID_NUM4) rotarySwitch += 4;
-    if (!MOD_ID_NUM8) rotarySwitch += 8;
-	
-    moduleID = BASE_ID+rotarySwitch*10; // Atomic assignment in case of interrupt
-}
 
 // We talk to the LTC6802 voltage sampling chip via SPI. Simple bit-banging functions.
 void WriteSPIByte(unsigned char byte)
